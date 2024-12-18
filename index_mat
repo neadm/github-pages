@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro e Consulta</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        h1 {
+            margin: 20px 0;
+        }
+        form, .consulta {
+            width: 90%;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        form input, form textarea, form button, .consulta button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .dados {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            text-align: left;
+        }
+        .dados pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cadastro e Consulta</h1>
+    <form id="cadastroForm">
+        <input type="text" id="nome" placeholder="Nome" required>
+        <input type="email" id="email" placeholder="Email" required>
+        <textarea id="descricao" placeholder="Descrição" required></textarea>
+        <button type="button" onclick="cadastrar()">Cadastrar</button>
+    </form>
+
+    <div class="consulta">
+        <button type="button" onclick="consultar()">Consultar Dados</button>
+        <div class="dados" id="dados"></div>
+    </div>
+
+    <script>
+        const GITHUB_USERNAME = "neadm";
+        const REPO_NAME = "matricula";
+        const FILE_PATH = "dados.json";
+        const GITHUB_TOKEN = "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";
+        const API_URL = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`;
+
+        async function cadastrar() {
+            const nome = document.getElementById("nome").value;
+            const email = document.getElementById("email").value;
+            const descricao = document.getElementById("descricao").value;
+
+            if (!nome || !email || !descricao) {
+                alert("Todos os campos são obrigatórios!");
+                return;
+            }
+
+            // Consultar arquivo existente
+            let dados = await consultarDados();
+            dados.push({ nome, email, descricao });
+
+            // Atualizar arquivo no GitHub
+            const content = btoa(JSON.stringify(dados, null, 2)); // Encode to Base64
+            const sha = await obterSha();
+
+            const response = await fetch(API_URL, {
+                method: "PUT",
+                headers: {
+                    "Authorization": `token ${GITHUB_TOKEN}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    message: "Atualizando dados",
+                    content: content,
+                    sha: sha
+                })
+            });
+
+            if (response.ok) {
+                alert("Cadastro realizado com sucesso!");
+                document.getElementById("cadastroForm").reset();
+            } else {
+                alert("Erro ao cadastrar dados.");
+            }
+        }
+
+        async function consultar() {
+            const dados = await consultarDados();
+            const dadosDiv = document.getElementById("dados");
+            dadosDiv.innerHTML = `<pre>${JSON.stringify(dados, null, 2)}</pre>`;
+        }
+
+        async function consultarDados() {
+            const response = await fetch(API_URL, {
+                method: "GET",
+                headers: {
+                    "Authorization": `token ${GITHUB_TOKEN}`
+                }
+            });
+
+            if (response.ok) {
+                const fileData = await response.json();
+                const content = atob(fileData.content); // Decode from Base64
+                return JSON.parse(content);
+            } else if (response.status === 404) {
+                // Arquivo não encontrado
+                return [];
+            } else {
+                alert("Erro ao consultar dados.");
+                throw new Error("Erro ao consultar dados");
+            }
+        }
+
+        async function obterSha() {
+            const response = await fetch(API_URL, {
+                method: "GET",
+                headers: {
+                    "Authorization": `token ${GITHUB_TOKEN}`
+                }
+            });
+
+            if (response.ok) {
+                const fileData = await response.json();
+                return fileData.sha;
+            } else if (response.status === 404) {
+                return null; // Arquivo ainda não existe
+            } else {
+                alert("Erro ao consultar SHA do arquivo.");
+                throw new Error("Erro ao consultar SHA");
+            }
+        }
+    </script>
+</body>
+</html>
